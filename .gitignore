@@ -1,0 +1,18 @@
+# Dependências e build
+/_build/
+/deps/
+/doc/
+
+# Arquivos de ambiente (NUNCA suba o token!)
+.env
+*.env
+
+# Arquivo de persistência gerado em runtime
+lembretes.json
+
+# Cobertura de testes
+/cover/
+
+# Arquivos do sistema operacional
+.DS_Store
+Thumbs.db
