@@ -23,8 +23,6 @@ Bot desenvolvido em Elixir com o framework Nostrum para a disciplina T300 - Prog
 
 ## Configuração do Token
 
-**Nunca coloque o token diretamente no código.**
-
 Antes de rodar o bot, exporte o token como variável de ambiente no terminal:
 
 ```bash
@@ -39,7 +37,7 @@ $env:DISCORD_TOKEN="seu_token_aqui"
 
 ```bash
 # 1. Clone o repositório
-git clone <url-do-seu-repositorio>
+git clone <https://github.com/jvcid/aetherBot>
 cd meu_bot
 
 # 2. Instale as dependências
