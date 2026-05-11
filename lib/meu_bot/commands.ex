@@ -1,220 +1,191 @@
 defmodule MeuBot.Commands do
-  @moduledoc """
-  Implementação de cada comando do bot.
-  Cada função pública corresponde a um comando do Discord.
-  """
-
-  # ── !ping ──────────────────────────────────────────────────────
-  # Tipo: sem parâmetro
-  # API: nenhuma
 
   def ping do
-    "🏓 Pong! Estou vivo e funcionando!"
+    "Pong!"
   end
-
-  # ── !clima <cidade> ────────────────────────────────────────────
-  # Tipo: um parâmetro
-  # API: Open-Meteo (geocoding + clima, grátis, sem chave)
 
   def clima(cidade) do
-    with {:ok, {lat, lon, nome}} <- geocodificar(cidade),
-         {:ok, dados} <- buscar_clima(lat, lon) do
-      temperatura = dados["current"]["temperature_2m"]
-      umidade = dados["current"]["relative_humidity_2m"]
-      vento = dados["current"]["wind_speed_10m"]
-
-      """
-      🌤️ **Clima em #{nome}**
-      🌡️ Temperatura: #{temperatura}°C
-      💧 Umidade: #{umidade}%
-      💨 Vento: #{vento} km/h
-      """
-    else
-      {:erro, motivo} -> "❌ Não consegui buscar o clima: #{motivo}"
-    end
-  end
-
-  defp geocodificar(cidade) do
-    url = "https://geocoding-api.open-meteo.com/v1/search?name=#{URI.encode(cidade)}&count=1&language=pt"
-
-    case HTTPoison.get(url) do
-      {:ok, %{status_code: 200, body: body}} ->
-        case Jason.decode(body) do
-          {:ok, %{"results" => [primeiro | _]}} ->
-            lat = primeiro["latitude"]
-            lon = primeiro["longitude"]
-            nome = primeiro["name"]
-            {:ok, {lat, lon, nome}}
-
-          _ ->
-            {:erro, "cidade não encontrada"}
-        end
-
-      _ ->
-        {:erro, "falha na requisição"}
-    end
-  end
-
-  defp buscar_clima(lat, lon) do
     url =
-      "https://api.open-meteo.com/v1/forecast" <>
-        "?latitude=#{lat}&longitude=#{lon}" <>
-        "&current=temperature_2m,relative_humidity_2m,wind_speed_10m"
+      "https://geocoding-api.open-meteo.com/v1/search?name=#{URI.encode(cidade)}&count=1"
 
     case HTTPoison.get(url) do
-      {:ok, %{status_code: 200, body: body}} -> Jason.decode(body)
-      _ -> {:erro, "falha ao buscar dados meteorológicos"}
-    end
-  end
+      {:ok, resposta} ->
 
-  # ── !piada ─────────────────────────────────────────────────────
-  # Tipo: um parâmetro (categoria opcional, padrão "general")
-  # API: Official Joke API (grátis, sem chave)
+        json =
+          Jason.decode!(resposta.body)
 
-  def piada(categoria \\ "general") do
-    url = "https://official-joke-api.appspot.com/jokes/#{URI.encode(categoria)}/random"
+        cidade_info =
+          hd(json["results"])
 
-    case HTTPoison.get(url) do
-      {:ok, %{status_code: 200, body: body}} ->
-        case Jason.decode(body) do
-          {:ok, [%{"setup" => pergunta, "punchline" => resposta} | _]} ->
-            "😄 **#{pergunta}**\n||#{resposta}||"
+        lat =
+          cidade_info["latitude"]
 
-          {:ok, %{"setup" => pergunta, "punchline" => resposta}} ->
-            "😄 **#{pergunta}**\n||#{resposta}||"
+        lon =
+          cidade_info["longitude"]
+
+        nome =
+          cidade_info["name"]
+
+        clima_url =
+          "https://api.open-meteo.com/v1/forecast?latitude=#{lat}&longitude=#{lon}&current=temperature_2m"
+
+        case HTTPoison.get(clima_url) do
+          {:ok, clima_resposta} ->
+
+            clima_json =
+              Jason.decode!(clima_resposta.body)
+
+            temperatura =
+              clima_json["current"]["temperature_2m"]
+
+            "Clima em #{nome}: #{temperatura}°C"
 
           _ ->
-            "❌ Não encontrei piadas nessa categoria. Tente: general, programming, knock-knock"
+            "Erro ao buscar clima"
         end
 
       _ ->
-        "❌ Não consegui buscar uma piada agora."
+        "Cidade não encontrada"
     end
   end
 
-  # ── !conv <valor> <de> <para> ──────────────────────────────────
-  # Tipo: dois ou mais parâmetros
-  # API: ExchangeRate-API (grátis, sem chave para taxa básica)
-
-  def converter(valor_str, moeda_de, moeda_para) do
-    with {valor, _} <- Float.parse(valor_str),
-         {:ok, taxa} <- buscar_taxa(String.upcase(moeda_de), String.upcase(moeda_para)) do
-      resultado = valor * taxa
-      resultado_formatado = :erlang.float_to_binary(resultado, decimals: 2)
-      valor_formatado = :erlang.float_to_binary(valor, decimals: 2)
-
-      "💱 #{valor_formatado} #{String.upcase(moeda_de)} = **#{resultado_formatado} #{String.upcase(moeda_para)}**"
-    else
-      :error -> "❌ Valor inválido. Use números, ex: `!conv 100 USD BRL`"
-      {:erro, motivo} -> "❌ Erro na conversão: #{motivo}"
-    end
-  end
-
-  defp buscar_taxa(de, para) do
-    url = "https://open.er-api.com/v6/latest/#{de}"
+  def piada(categoria) do
+    url =
+      "https://official-joke-api.appspot.com/jokes/#{categoria}/random"
 
     case HTTPoison.get(url) do
-      {:ok, %{status_code: 200, body: body}} ->
-        case Jason.decode(body) do
-          {:ok, %{"rates" => taxas}} ->
-            case Map.fetch(taxas, para) do
-              {:ok, taxa} -> {:ok, taxa}
-              :error -> {:erro, "moeda #{para} não encontrada"}
-            end
+      {:ok, resposta} ->
 
-          _ ->
-            {:erro, "resposta inválida da API"}
-        end
+        json =
+          Jason.decode!(resposta.body)
+
+        piada =
+          hd(json)
+
+        "#{piada["setup"]}\n#{piada["punchline"]}"
 
       _ ->
-        {:erro, "falha na requisição"}
+        "Erro ao buscar piada"
     end
   end
 
-  # ── !traduzir <idioma> <texto> ─────────────────────────────────
-  # Tipo: dois ou mais parâmetros
-  # API: MyMemory Translation API (grátis, sem chave)
+  def converter(valor_str, de, para) do
+    valor =
+      String.to_float(valor_str)
 
-  def traduzir(idioma_destino, texto) do
-    par = "pt|#{idioma_destino}"
-    url = "https://api.mymemory.translated.net/get?q=#{URI.encode(texto)}&langpair=#{par}"
+    url =
+      "https://open.er-api.com/v6/latest/#{String.upcase(de)}"
 
     case HTTPoison.get(url) do
-      {:ok, %{status_code: 200, body: body}} ->
-        case Jason.decode(body) do
-          {:ok, %{"responseData" => %{"translatedText" => traducao}}} ->
-            "🌐 **Tradução (#{idioma_destino}):**\n#{traducao}"
+      {:ok, resposta} ->
 
-          _ ->
-            "❌ Não consegui traduzir. Verifique o código do idioma (ex: en, es, fr, de, ja)"
-        end
+        json =
+          Jason.decode!(resposta.body)
+
+        taxa =
+          json["rates"][String.upcase(para)]
+
+        resultado =
+          valor * taxa
+
+        "#{Float.round(resultado, 2)} #{String.upcase(para)}"
 
       _ ->
-        "❌ Falha ao conectar com o serviço de tradução."
+        "Erro na conversão"
     end
   end
 
-  # ── !lembrar <texto> ───────────────────────────────────────────
-  # Tipo: persistência JSON
-  # API: nenhuma (arquivo local via MeuBot.Store)
+  def traduzir(idioma, texto) do
+    url =
+      "https://api.mymemory.translated.net/get?q=#{URI.encode(texto)}&langpair=pt|#{idioma}"
+
+    case HTTPoison.get(url) do
+      {:ok, resposta} ->
+
+        json =
+          Jason.decode!(resposta.body)
+
+        json["responseData"]["translatedText"]
+
+      _ ->
+        "Erro na tradução"
+    end
+  end
 
   def lembrar(usuario_id, texto) do
-    case MeuBot.Store.salvar(usuario_id, texto) do
-      :ok -> "📝 Anotado! Vou me lembrar disso para você."
-      _ -> "❌ Não consegui salvar seu lembrete."
-    end
+    MeuBot.Store.salvar(usuario_id, texto)
+
+    "Lembrete salvo"
   end
 
   def lembretes(usuario_id) do
-    case MeuBot.Store.buscar(usuario_id) do
-      [] ->
-        "📭 Você não tem nenhum lembrete salvo. Use `!lembrar <texto>` para adicionar."
+    lista =
+      MeuBot.Store.buscar(usuario_id)
 
-      lista ->
-        itens =
-          lista
-          |> Enum.with_index(1)
-          |> Enum.map(fn {item, i} -> "#{i}. #{item}" end)
-          |> Enum.join("\n")
-
-        "📋 **Seus lembretes:**\n#{itens}"
-    end
+    Enum.join(lista, "\n")
   end
 
-  # ── !curiosidade <cidade> ──────────────────────────────────────
-  # Tipo: combina duas APIs
-  # API 1: Open-Meteo (busca o clima atual)
-  # API 2: MyMemory (traduz a descrição do clima para inglês)
-
   def curiosidade(cidade) do
-    with {:ok, {lat, lon, nome}} <- geocodificar(cidade),
-         {:ok, dados} <- buscar_clima(lat, lon) do
-      temperatura = dados["current"]["temperature_2m"]
-      umidade = dados["current"]["relative_humidity_2m"]
+    url =
+      "https://geocoding-api.open-meteo.com/v1/search?name=#{URI.encode(cidade)}&count=1"
 
-      descricao_pt = "Agora em #{nome} a temperatura é de #{temperatura} graus e a umidade é de #{umidade} porcento."
+    case HTTPoison.get(url) do
+      {:ok, resposta} ->
 
-      url = "https://api.mymemory.translated.net/get?q=#{URI.encode(descricao_pt)}&langpair=pt|en"
+        json =
+          Jason.decode!(resposta.body)
 
-      descricao_en =
-        case HTTPoison.get(url) do
-          {:ok, %{status_code: 200, body: body}} ->
-            case Jason.decode(body) do
-              {:ok, %{"responseData" => %{"translatedText" => trad}}} -> trad
-              _ -> "Translation unavailable"
+        cidade_info =
+          hd(json["results"])
+
+        lat =
+          cidade_info["latitude"]
+
+        lon =
+          cidade_info["longitude"]
+
+        nome =
+          cidade_info["name"]
+
+        clima_url =
+          "https://api.open-meteo.com/v1/forecast?latitude=#{lat}&longitude=#{lon}&current=temperature_2m"
+
+        case HTTPoison.get(clima_url) do
+          {:ok, clima_resposta} ->
+
+            clima_json =
+              Jason.decode!(clima_resposta.body)
+
+            temperatura =
+              clima_json["current"]["temperature_2m"]
+
+            texto =
+              "A temperatura em #{nome} é #{temperatura} graus"
+
+            traducao_url =
+              "https://api.mymemory.translated.net/get?q=#{URI.encode(texto)}&langpair=pt|en"
+
+            case HTTPoison.get(traducao_url) do
+              {:ok, traducao_resposta} ->
+
+                traducao_json =
+                  Jason.decode!(traducao_resposta.body)
+
+                traducao =
+                  traducao_json["responseData"]["translatedText"]
+
+                "#{texto}\n#{traducao}"
+
+              _ ->
+                "Erro na tradução"
             end
 
           _ ->
-            "Translation unavailable"
+            "Erro ao buscar clima"
         end
 
-      """
-      🌍 **Curiosidade sobre #{nome}**
-      🇧🇷 #{descricao_pt}
-      🇬🇧 #{descricao_en}
-      """
-    else
-      {:erro, motivo} -> "❌ Não encontrei informações sobre essa cidade: #{motivo}"
+      _ ->
+        "Cidade não encontrada"
     end
   end
 end
