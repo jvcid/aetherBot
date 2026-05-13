@@ -1,7 +1,7 @@
 defmodule MeuBot.Commands do
 
-  def ping do
-    "Pong!"
+  def salve do
+    "salve cachorro"
   end
 
   def clima(cidade) do
@@ -70,30 +70,30 @@ defmodule MeuBot.Commands do
   end
 
   def converter(valor_str, de, para) do
-    valor =
-      String.to_float(valor_str)
+  {valor, _} =
+    Float.parse(valor_str)
 
-    url =
-      "https://open.er-api.com/v6/latest/#{String.upcase(de)}"
+  url =
+    "https://open.er-api.com/v6/latest/#{String.upcase(de)}"
 
-    case HTTPoison.get(url) do
-      {:ok, resposta} ->
+  case HTTPoison.get(url) do
+    {:ok, resposta} ->
 
-        json =
-          Jason.decode!(resposta.body)
+      json =
+        Jason.decode!(resposta.body)
 
-        taxa =
-          json["rates"][String.upcase(para)]
+      taxa =
+        json["rates"][String.upcase(para)]
 
-        resultado =
-          valor * taxa
+      resultado =
+        valor * taxa
 
-        "#{Float.round(resultado, 2)} #{String.upcase(para)}"
+      "#{Float.round(resultado, 2)} #{String.upcase(para)}"
 
-      _ ->
-        "Erro na conversão"
-    end
+    _ ->
+      "Erro na conversão"
   end
+end
 
   def traduzir(idioma, texto) do
     url =

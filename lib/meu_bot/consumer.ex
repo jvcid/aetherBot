@@ -16,8 +16,8 @@ defmodule MeuBot.Consumer do
     :ok
   end
 
-  defp responder(%{content: "!ping", channel_id: canal}) do
-    Api.create_message(canal, Commands.ping())
+  defp responder(%{content: "!salve", channel_id: canal}) do
+    Api.create_message(canal, Commands.salve())
   end
 
   defp responder(%{content: "!piada " <> categoria, channel_id: canal}) do
@@ -91,7 +91,7 @@ defmodule MeuBot.Consumer do
 
   defp responder(%{content: "!ajuda", channel_id: canal}) do
     mensagem = """
-    !ping
+    !salve
     !piada general
     !clima fortaleza
     !conv 100 USD BRL
